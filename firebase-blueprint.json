@@ -78,12 +78,29 @@
         "severity": { "type": "string", "enum": ["low", "medium", "high"] }
       },
       "required": ["id", "question", "type", "severity"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Extended user profile data",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "email", "updatedAt"]
     }
   },
   "firestore": {
     "/ideas/{ideaId}": {
       "schema": "Idea",
       "description": "Collection of user ideas"
+    },
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile information"
     }
   }
 }
