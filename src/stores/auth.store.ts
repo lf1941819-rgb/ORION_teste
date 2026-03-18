@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { User } from '../features/auth/types/auth.types';
 import { auth, db, OperationType, handleFirestoreError } from '../lib/firebase';
-import { signInWithPopup, GoogleAuthProvider, signOut, updateProfile } from 'firebase/auth';
+import { signInWithRedirect, GoogleAuthProvider, signOut, updateProfile } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 interface AuthState {
@@ -23,7 +23,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   login: async () => {
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
+      await signInWithRedirect(auth, provider);
     } catch (error) {
       console.error('Auth: Login failed', error);
     }
