@@ -1,0 +1,99 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: ideas
+    // Document ID: {ideaId}
+    // Fields:
+    //   - id: string (required) - unique identifier
+    //   - title: string (required) - title of the study
+    //   - userId: string (required) - owner's UID
+    //   - blocks: list of maps (required) - structural blocks
+    //   - premises: list of maps (required) - logical premises
+    //   - arguments: list of maps (required) - logical arguments
+    //   - analysis: list of maps (required) - AI analysis questions
+    //   - createdAt: string (required) - ISO 8601 creation date
+    //   - updatedAt: string (required) - ISO 8601 last update date
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "lf1941819@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidDateString(dateStr) {
+      return dateStr is string &&
+        dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidIdea(data) {
+      return hasRequiredFields(['id', 'title', 'userId', 'createdAt', 'updatedAt']) &&
+             data.id is string && data.id.size() > 0 &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 256 &&
+             data.userId is string && data.userId.size() > 0 &&
+             data.blocks is list &&
+             data.premises is list &&
+             data.arguments is list &&
+             data.analysis is list &&
+             isValidDateString(data.createdAt) &&
+             isValidDateString(data.updatedAt);
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+
+    match /ideas/{ideaId} {
+      // Users can only read their own ideas
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      
+      // Users can only create ideas where they are the owner
+      allow create: if isAuthenticated() && 
+                      isValidIdea(request.resource.data) && 
+                      isOwner(request.resource.data.userId);
+      
+      // Users can only update their own ideas, and cannot change ownership
+      allow update: if isOwner(resource.data.userId) && 
+                      isValidIdea(request.resource.data) && 
+                      request.resource.data.userId == resource.data.userId &&
+                      request.resource.data.createdAt == resource.data.createdAt;
+      
+      // Users can only delete their own ideas
+      allow delete: if isOwner(resource.data.userId) || isAdmin();
+    }
+
+    // Default deny for everything else
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}

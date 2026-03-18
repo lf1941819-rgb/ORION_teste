@@ -1,0 +1,89 @@
+{
+  "entities": {
+    "Idea": {
+      "title": "Idea",
+      "description": "A core thought or study being analyzed",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "userId": { "type": "string" },
+        "blocks": {
+          "type": "array",
+          "items": { "$ref": "Block" }
+        },
+        "premises": {
+          "type": "array",
+          "items": { "$ref": "Premise" }
+        },
+        "arguments": {
+          "type": "array",
+          "items": { "$ref": "Argument" }
+        },
+        "analysis": {
+          "type": "array",
+          "items": { "$ref": "AnalysisQuestion" }
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "userId", "createdAt", "updatedAt"]
+    },
+    "Block": {
+      "title": "Block",
+      "description": "A structural piece of text in an idea",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "enum": ["paragraph", "heading", "quote", "note", "scripture", "question"] },
+        "content": { "type": "string" },
+        "order": { "type": "number" }
+      },
+      "required": ["id", "type", "content", "order"]
+    },
+    "Premise": {
+      "title": "Premise",
+      "description": "A logical premise extracted from blocks",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "type": { "type": "string", "enum": ["base", "hidden", "antithesis", "descriptive", "normative", "causal", "assumption"] },
+        "sourceBlockId": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "required": ["id", "text", "type"]
+    },
+    "Argument": {
+      "title": "Argument",
+      "description": "A logical argument built from premises",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "conclusion": { "type": "string" },
+        "premiseIds": { "type": "array", "items": { "type": "string" } },
+        "strength": { "type": "string", "enum": ["weak", "moderate", "strong"] },
+        "notes": { "type": "string" }
+      },
+      "required": ["id", "conclusion", "premiseIds", "strength"]
+    },
+    "AnalysisQuestion": {
+      "title": "AnalysisQuestion",
+      "description": "AI-generated critical analysis question",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "question": { "type": "string" },
+        "type": { "type": "string", "enum": ["critical", "clarity", "evidence", "consistency"] },
+        "severity": { "type": "string", "enum": ["low", "medium", "high"] }
+      },
+      "required": ["id", "question", "type", "severity"]
+    }
+  },
+  "firestore": {
+    "/ideas/{ideaId}": {
+      "schema": "Idea",
+      "description": "Collection of user ideas"
+    }
+  }
+}
