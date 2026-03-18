@@ -34,7 +34,7 @@ service cloud.firestore {
     
     function isAdmin() {
       return isAuthenticated() && 
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+        ( (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
          (request.auth.token.email == "lf1941819@gmail.com" && request.auth.token.email_verified == true));
     }
 
@@ -58,7 +58,7 @@ service cloud.firestore {
     function isValidIdea(data) {
       return hasRequiredFields(['id', 'title', 'userId', 'createdAt', 'updatedAt']) &&
              data.id is string && data.id.size() > 0 &&
-             data.title is string && data.title.size() > 0 && data.title.size() < 256 &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 1000 &&
              data.userId is string && data.userId.size() > 0 &&
              data.blocks is list &&
              data.premises is list &&
@@ -101,9 +101,10 @@ service cloud.firestore {
                       isOwner(request.resource.data.userId);
       
       // Users can only update their own ideas, and cannot change ownership
-      allow update: if isOwner(resource.data.userId) && 
+      // Admins can also update
+      allow update: if (isOwner(resource.data.userId) || isAdmin()) && 
                       isValidIdea(request.resource.data) && 
-                      request.resource.data.userId == resource.data.userId &&
+                      (isAdmin() || request.resource.data.userId == resource.data.userId) &&
                       request.resource.data.createdAt == resource.data.createdAt;
       
       // Users can only delete their own ideas

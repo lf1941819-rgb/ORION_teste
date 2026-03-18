@@ -1,8 +1,9 @@
-import React from 'react';
-import { X, Printer, ArrowLeft } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Printer, ArrowLeft, FileDown, Loader2 } from 'lucide-react';
 import { Idea } from '../../../types/app.types';
 import { useAuthStore } from '../../../stores/auth.store';
 import { motion, AnimatePresence } from 'motion/react';
+import { jsPDF } from 'jspdf';
 
 interface PrintPreviewModalProps {
   idea: Idea;
@@ -12,9 +13,230 @@ interface PrintPreviewModalProps {
 
 export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ idea, isOpen, onClose }) => {
   const user = useAuthStore(state => state.user);
+  const [isExporting, setIsExporting] = useState(false);
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleExportPDF = async () => {
+    setIsExporting(true);
+    try {
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const margin = 20;
+      let y = margin;
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const contentWidth = pageWidth - (margin * 2);
+
+      const checkPageBreak = (needed: number) => {
+        if (y + needed > 275) {
+          doc.addPage();
+          y = margin;
+          return true;
+        }
+        return false;
+      };
+
+      // Header
+      doc.setFontSize(8);
+      doc.setTextColor(150, 150, 150);
+      doc.text('ÓRION LAB // Documento Analítico', margin, y);
+      doc.text(new Date(idea.createdAt).toLocaleDateString('pt-BR'), pageWidth - margin, y, { align: 'right' });
+      
+      y += 15;
+      doc.setFontSize(24);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'bold');
+      
+      const titleLines = doc.splitTextToSize(idea.title, contentWidth);
+      doc.text(titleLines, margin, y);
+      y += (titleLines.length * 10) + 5;
+
+      doc.setFontSize(10);
+      doc.setTextColor(100, 100, 100);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Analista: ${user?.name || 'Não identificado'}`, margin, y);
+      doc.text(`ID: ${idea.id.slice(0, 8)}`, pageWidth - margin, y, { align: 'right' });
+
+      y += 10;
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.5);
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 15;
+
+      // 1. Content Blocks
+      idea.blocks.sort((a, b) => a.order - b.order).forEach(block => {
+        checkPageBreak(20);
+        doc.setTextColor(0, 0, 0);
+        
+        if (block.type === 'heading') {
+          doc.setFontSize(16);
+          doc.setFont('helvetica', 'bold');
+          const lines = doc.splitTextToSize(block.content, contentWidth - 5);
+          doc.setDrawColor(79, 70, 229);
+          doc.setLineWidth(1);
+          doc.line(margin, y - 1, margin, y + (lines.length * 6));
+          doc.text(lines, margin + 5, y + 5);
+          y += (lines.length * 7) + 10;
+        } else if (block.type === 'quote') {
+          doc.setFontSize(11);
+          doc.setFont('helvetica', 'italic');
+          doc.setTextColor(80, 80, 80);
+          const lines = doc.splitTextToSize(block.content, contentWidth - 10);
+          doc.setDrawColor(200, 200, 200);
+          doc.setLineWidth(0.5);
+          doc.line(margin + 2, y, margin + 2, y + (lines.length * 5));
+          doc.text(lines, margin + 8, y + 4);
+          y += (lines.length * 5) + 10;
+        } else if (block.type === 'scripture') {
+          doc.setFillColor(248, 250, 252);
+          const lines = doc.splitTextToSize(block.content, contentWidth - 10);
+          doc.rect(margin, y, contentWidth, (lines.length * 5) + 10, 'F');
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(79, 70, 229);
+          doc.text('REFERÊNCIA:', margin + 5, y + 5);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(50, 50, 50);
+          doc.text(lines, margin + 5, y + 10);
+          y += (lines.length * 5) + 20;
+        } else {
+          doc.setFontSize(11);
+          doc.setFont('helvetica', 'normal');
+          const lines = doc.splitTextToSize(block.content, contentWidth);
+          doc.text(lines, margin, y);
+          y += (lines.length * 6) + 5;
+        }
+      });
+
+      // 2. Premises Section
+      if (idea.premises.length > 0) {
+        checkPageBreak(30);
+        y += 10;
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(79, 70, 229);
+        doc.text('ESTRUTURA DE PREMISSAS', margin, y);
+        y += 10;
+        
+        idea.premises.forEach((premise, idx) => {
+          checkPageBreak(15);
+          doc.setFontSize(9);
+          doc.setTextColor(180, 180, 180);
+          doc.text(String(idx + 1).padStart(2, '0'), margin, y);
+          
+          doc.setTextColor(100, 100, 100);
+          doc.setFont('helvetica', 'bold');
+          doc.text(`[${premise.type.toUpperCase()}]`, margin + 8, y);
+          
+          doc.setTextColor(0, 0, 0);
+          doc.setFont('helvetica', 'normal');
+          const lines = doc.splitTextToSize(premise.text, contentWidth - 35);
+          doc.text(lines, margin + 30, y);
+          y += (lines.length * 5) + 5;
+        });
+      }
+
+      // 3. Arguments Section
+      if (idea.arguments.length > 0) {
+        checkPageBreak(30);
+        y += 15;
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(79, 70, 229);
+        doc.text('CONSTRUÇÃO ARGUMENTATIVA', margin, y);
+        y += 10;
+
+        idea.arguments.forEach((arg, idx) => {
+          checkPageBreak(40);
+          doc.setDrawColor(79, 70, 229);
+          doc.setLineWidth(0.5);
+          
+          doc.setFontSize(14);
+          doc.setTextColor(0, 0, 0);
+          const concLines = doc.splitTextToSize(arg.conclusion, contentWidth - 10);
+          doc.text(concLines, margin + 5, y + 5);
+          const blockHeight = (concLines.length * 7) + 20;
+          doc.line(margin, y, margin, y + blockHeight);
+          
+          y += (concLines.length * 7) + 5;
+          doc.setFontSize(9);
+          doc.setTextColor(100, 100, 100);
+          doc.text(`Validação: ${arg.strength === 'strong' ? 'Forte' : arg.strength === 'moderate' ? 'Moderada' : 'Fraca'}`, margin + 5, y);
+          y += 8;
+
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'bold');
+          doc.text('Base de Sustentação:', margin + 5, y);
+          y += 5;
+          
+          doc.setFont('helvetica', 'normal');
+          arg.premiseIds.forEach(pid => {
+            const p = idea.premises.find(pre => pre.id === pid);
+            if (p) {
+              const pLines = doc.splitTextToSize(`• ${p.text}`, contentWidth - 15);
+              doc.text(pLines, margin + 10, y);
+              y += (pLines.length * 5);
+            }
+          });
+          y += 10;
+        });
+      }
+
+      // 4. AI Analysis Section
+      if (idea.analysis.length > 0) {
+        checkPageBreak(30);
+        y += 15;
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(220, 38, 38); // red-600
+        doc.text('ANÁLISE CRÍTICA (IA)', margin, y);
+        y += 10;
+
+        idea.analysis.forEach(q => {
+          checkPageBreak(20);
+          doc.setFillColor(254, 242, 242);
+          const lines = doc.splitTextToSize(q.question, contentWidth - 10);
+          doc.rect(margin, y, contentWidth, (lines.length * 5) + 12, 'F');
+          
+          doc.setFontSize(8);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(185, 28, 28);
+          doc.text(`${q.type.toUpperCase()} // SEVERIDADE: ${q.severity.toUpperCase()}`, margin + 5, y + 5);
+          
+          doc.setFontSize(10);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(0, 0, 0);
+          doc.text(lines, margin + 5, y + 10);
+          y += (lines.length * 5) + 18;
+        });
+      }
+
+      // Footer
+      const pageCount = (doc as any).internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(180, 180, 180);
+        doc.text(
+          `ÓRION LAB // Documento Analítico // Página ${i} de ${pageCount}`,
+          pageWidth / 2,
+          285,
+          { align: 'center' }
+        );
+      }
+
+      doc.save(`${idea.title.toLowerCase().replace(/\s+/g, '-')}-analise.pdf`);
+    } catch (error) {
+      console.error('Erro ao exportar PDF:', error);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
@@ -30,25 +252,44 @@ export const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ idea, isOp
           <div className="sticky top-0 z-[110] bg-white/80 backdrop-blur-md border-b border-stone-200 px-6 py-4 flex items-center justify-between print:hidden">
             <button 
               onClick={onClose}
-              className="flex items-center gap-2 text-slate-600 hover:text-indigo-600 transition-colors font-medium"
+              className="group flex items-center gap-2 text-slate-500 hover:text-indigo-600 transition-all font-semibold text-sm"
             >
-              <ArrowLeft size={18} />
+              <div className="p-1.5 rounded-lg group-hover:bg-indigo-50 transition-colors">
+                <ArrowLeft size={16} />
+              </div>
               Voltar ao Estudo
             </button>
             
             <div className="flex items-center gap-3">
               <button 
                 type="button"
+                onClick={handleExportPDF}
+                disabled={isExporting}
+                className="flex items-center gap-2 px-5 py-2.5 bg-white text-slate-700 border border-slate-200 rounded-xl hover:border-indigo-500 hover:text-indigo-600 transition-all shadow-sm font-bold text-sm disabled:opacity-50"
+              >
+                {isExporting ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <FileDown size={18} />
+                )}
+                {isExporting ? 'Exportando...' : 'Exportar PDF'}
+              </button>
+
+              <button 
+                type="button"
                 onClick={handlePrint}
-                className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 font-bold text-sm"
+                className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 font-bold text-sm active:scale-95"
               >
                 <Printer size={18} />
-                Imprimir / Exportar PDF
+                Imprimir
               </button>
+
+              <div className="w-[1px] h-6 bg-slate-200 mx-1" />
+
               <button 
                 type="button"
                 onClick={onClose}
-                className="p-2.5 bg-slate-100 text-slate-500 hover:text-slate-900 rounded-xl transition-colors"
+                className="p-2.5 bg-slate-100 text-slate-500 hover:text-slate-900 rounded-xl transition-colors hover:bg-slate-200"
               >
                 <X size={20} />
               </button>

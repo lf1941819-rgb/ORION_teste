@@ -46,11 +46,11 @@ export const Topbar: React.FC = () => {
         {activeIdea && (
           <button
             onClick={handleOpenPrintView}
-            className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/50 hover:bg-indigo-600 text-slate-400 hover:text-white rounded-lg border border-slate-800/30 hover:border-indigo-500 transition-all group mr-2"
+            className="flex items-center gap-2.5 px-4 py-2 bg-slate-900/40 hover:bg-indigo-600/10 text-slate-400 hover:text-indigo-400 rounded-xl border border-slate-800/50 hover:border-indigo-500/50 transition-all group mr-2 shadow-sm active:scale-95"
             title="Visualizar Documento para Impressão"
           >
-            <Printer size={14} className="group-hover:scale-110 transition-transform" />
-            <span className="text-[10px] font-black uppercase tracking-widest hidden md:inline">Visualizar Impressão</span>
+            <Printer size={15} className="group-hover:scale-110 transition-transform" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.15em] hidden md:inline">Exportar Análise</span>
           </button>
         )}
 

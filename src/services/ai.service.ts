@@ -3,10 +3,11 @@ import { Idea, AnalysisQuestion, Premise } from "../types/app.types";
 import { generateId } from "../utils/id";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
-const GEMINI_MODEL = "gemini-2.5-flash";
 
 export const aiService = {
   async analyzeIdea(idea: Idea): Promise<AnalysisQuestion[]> {
+    const model = "gemini-3.1-pro-preview";
+    
     const prompt = `
       Você é um analista lógico sênior no ÓRION LAB. 
       Sua tarefa é analisar a estrutura de um argumento ou ideia em desenvolvimento.
@@ -27,15 +28,15 @@ export const aiService = {
       
       Responda APENAS em formato JSON seguindo este esquema:
       Array<{
-        question: string,
-        type: 'critical' | 'clarity' | 'evidence' | 'consistency',
-        severity: 'low' | 'medium' | 'high'
+        question: string (a pergunta ou observação),
+        type: 'critical' | 'clarity' | 'evidence' | 'consistency' (o tipo de análise),
+        severity: 'low' | 'medium' | 'high' (a importância)
       }>
     `;
 
     try {
       const response = await ai.models.generateContent({
-        model: GEMINI_MODEL,
+        model,
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -45,16 +46,16 @@ export const aiService = {
               type: Type.OBJECT,
               properties: {
                 question: { type: Type.STRING },
-                type: {
+                type: { 
                   type: Type.STRING,
-                  enum: ["critical", "clarity", "evidence", "consistency"]
+                  enum: ['critical', 'clarity', 'evidence', 'consistency']
                 },
-                severity: {
+                severity: { 
                   type: Type.STRING,
-                  enum: ["low", "medium", "high"]
+                  enum: ['low', 'medium', 'high']
                 }
               },
-              required: ["question", "type", "severity"]
+              required: ['question', 'type', 'severity']
             }
           }
         }
@@ -62,31 +63,14 @@ export const aiService = {
 
       const text = response.text;
       if (!text) return [];
-
+      
       const results = JSON.parse(text);
       return results.map((r: any) => ({
         ...r,
         id: generateId()
       }));
-    } catch (error: any) {
+    } catch (error) {
       console.error("Erro na análise de IA:", error);
-
-      const isQuotaError =
-        error?.status === 429 ||
-        String(error?.message || "").includes("429") ||
-        String(error?.message || "").includes("RESOURCE_EXHAUSTED");
-
-      if (isQuotaError) {
-        return [
-          {
-            id: generateId(),
-            question: "A cota da IA foi excedida no momento. Aguarde um pouco e tente novamente.",
-            type: "evidence",
-            severity: "medium"
-          }
-        ];
-      }
-
       return [
         {
           id: generateId(),
@@ -99,6 +83,8 @@ export const aiService = {
   },
 
   async extractPremises(idea: Idea): Promise<Premise[]> {
+    const model = "gemini-3.1-pro-preview";
+    
     const prompt = `
       Você é um analista lógico sênior no ÓRION LAB. 
       Sua tarefa é extrair premissas lógicas a partir de um texto ou conjunto de blocos de uma ideia.
@@ -115,14 +101,14 @@ export const aiService = {
       
       Responda APENAS em formato JSON seguindo este esquema:
       Array<{
-        text: string,
+        text: string (a premissa extraída),
         type: 'base' | 'hidden' | 'antithesis'
       }>
     `;
 
     try {
       const response = await ai.models.generateContent({
-        model: GEMINI_MODEL,
+        model,
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -132,12 +118,12 @@ export const aiService = {
               type: Type.OBJECT,
               properties: {
                 text: { type: Type.STRING },
-                type: {
+                type: { 
                   type: Type.STRING,
-                  enum: ["base", "hidden", "antithesis"]
+                  enum: ['base', 'hidden', 'antithesis']
                 }
               },
-              required: ["text", "type"]
+              required: ['text', 'type']
             }
           }
         }
@@ -145,27 +131,17 @@ export const aiService = {
 
       const text = response.text;
       if (!text) return [];
-
+      
       const results = JSON.parse(text);
       return results.map((r: any) => ({
         id: generateId(),
         text: r.text,
         type: r.type,
-        notes: ""
+        notes: ''
       }));
-    } catch (error: any) {
+    } catch (error) {
       console.error("Erro na extração de premissas:", error);
-
-      const isQuotaError =
-        error?.status === 429 ||
-        String(error?.message || "").includes("429") ||
-        String(error?.message || "").includes("RESOURCE_EXHAUSTED");
-
-      if (isQuotaError) {
-        throw new Error("A cota da IA foi excedida no momento. Aguarde um pouco e tente novamente.");
-      }
-
-      throw new Error("Não foi possível extrair premissas com IA no momento.");
+      return [];
     }
   }
 };
