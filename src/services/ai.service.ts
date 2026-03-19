@@ -6,7 +6,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
 export const aiService = {
   async analyzeIdea(idea: Idea): Promise<AnalysisQuestion[]> {
-    const model = "gemini-3.1-pro-preview";
+    const model = "gemini-2.5-flash";
     
     const prompt = `
       Você é um analista lógico sênior no ÓRION LAB. 
@@ -83,7 +83,7 @@ export const aiService = {
   },
 
   async extractPremises(idea: Idea): Promise<Premise[]> {
-    const model = "gemini-3.1-pro-preview";
+    const model = "gemini-2.5-flash";
     
     const prompt = `
       Você é um analista lógico sênior no ÓRION LAB. 
